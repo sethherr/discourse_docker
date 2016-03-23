@@ -25,6 +25,19 @@ local_discourse=local_discourse
 image=discourse/discourse:1.0.17
 docker_path=`which docker.io || which docker`
 
+
+# 
+# 
+# 
+# Testing run_ruby_file
+run_ruby_script() {
+  ruby_file=$1
+  arguments=$2
+  config_full_path="/var/discourse/$config_file"
+  ln -sf /var/discourse/$config_file /var/discourse/ruby_scripts/config.yml   # symlink config into docker data volume
+  echo `$docker_path run $user_args --rm -i -a stdout -a stdin -v /var/discourse/ruby_scripts:/ruby_scripts $image ruby /ruby_scripts/$ruby_file $arguments`
+}
+
 #
 #
 # testing simple_setup
@@ -72,5 +85,4 @@ fi
 
 # Run the simple_installer
 config_full_path="/var/discourse/$config_file"
-simple_setup_file='simple_setup.rb'
-echo `$docker_path run $user_args --rm -i -a stdout -a stdin -v $config_full_path:/config.yml $image ruby -e "$(cat $simple_setup_file)" "$simple_setup_hash"`
+run_ruby_script 'simple_setup.rb' "$simple_setup_hash"`

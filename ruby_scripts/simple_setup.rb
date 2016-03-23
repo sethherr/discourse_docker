@@ -1,7 +1,6 @@
 require 'fileutils'
 require 'yaml'
-config_path = '/config.yml'
-# array_configs = 'DISCOURSE_HOSTNAME, testly.domain.com,DISCOURSE_DEVELOPER_EMAILS, seth@exmample.com,DISCOURSE_SMTP_ADDRESS, partyaddy,DISCOURSE_SMTP_PORT, 88880,DISCOURSE_SMTP_USER_NAME, username,DISCOURSE_SMTP_PASSWORD, pAAAAAssss'.split(',').map(&:strip)
+config_path = 'config.yml'
 array_configs = ARGV.join(',').strip.chop
                     .split(',').map(&:strip).reject(&:empty?) # remove trailing comma, strip
 configs = Hash[*array_configs]
@@ -36,9 +35,9 @@ end
 
 {
   'DISCOURSE_SMTP_ENABLE_START_TLS' => 'true',
-  # 'UNICORN_WORKERS' => unicorns_from_cpus,
-  # 'db_shared_buffers' => pg_memory_for_memory
+  'UNICORN_WORKERS' => unicorns_from_cpus,
+  'db_shared_buffers' => pg_memory_for_memory
 }.merge(configs).each { |key, value| write_config(key, value) }
 
 File.write(config_path, @app_yml)
-puts 'success'
+puts 'successfully updated configuration'
