@@ -391,16 +391,6 @@ RUBY
   exit 0
 }
 
-[ "$command" == "simple_setup" ] && {
-  if [[ `awk -F= '/^NAME/{print $2}' /etc/os-release` =~ [ebian|buntu] ]]; then
-    apt-get install ruby -y
-  else
-    yum install ruby -y
-  fi
-  ruby simple_setup.rb
-  exit 0
-}
-
 
 [ $# -lt 2 ] && {
   usage
@@ -424,6 +414,13 @@ if compare_version "1.2.0" "$docker_version"; then
 else
   restart_policy=${restart_policy:---restart=always}
 fi
+
+run_ruby_script() {
+  ruby_file=$1
+  arguments=$2
+  cp containers/"$config".yml ruby_scripts/config.yml  # Add config to the data volume for easy access
+  echo `$docker_path run $user_args --rm -i -a stdout -a stdin -v /var/discourse/ruby_scripts:/ruby_scripts $image ruby /ruby_scripts/"$ruby_file" "$arguments"`
+}
 
 set_existing_container(){
   existing=`$docker_path ps -a | awk '{ print $1, $(NF) }' | grep " $config$" | awk '{ print $1 }'`
@@ -525,8 +522,7 @@ run_start(){
 
 }
 
-run_bootstrap(){
-
+install_image() {
   if [ "$opt" != "--skip-prereqs" ] ; then
     check_resources
   fi
@@ -534,6 +530,55 @@ run_bootstrap(){
   host_run
 
   get_ssh_pub_key
+}
+
+run_simple_setup() {
+  # Get the config variables by prompting the user for them
+  config_variables=(
+    DISCOURSE_HOSTNAME
+    DISCOURSE_DEVELOPER_EMAILS
+    DISCOURSE_SMTP_ADDRESS
+    DISCOURSE_SMTP_PORT
+    DISCOURSE_SMTP_USER_NAME
+    DISCOURSE_SMTP_PASSWORD
+  )
+  config_variables_desc=(
+    'Domain name'
+    "Initial admin and developer email(s)"
+    '(email provider) SMTP Address'
+    '(email provider) SMTP Port'
+    '(email provider) SMTP Username'
+    '(email provider) SMTP Password'
+  )
+  echo "To configure discourse we need a few things from you:"
+  echo
+  echo "- The domain name this Discourse instance will respond to, example: discourse.example.org"
+  echo "- The emails that will be made admin and developer on initial signup, example: 'user1@example.com,user2@example.com'"
+  echo "- Your email provider configuration. For help, go to https://github.com/discourse/discourse/blob/master/docs/INSTALL-email.md"
+  echo
+  for index in ${!config_variables[*]}; do # The indexes of the array
+    read -p "${config_variables_desc[$index]}: " ${config_variables[$index]}
+    simple_setup_hash+="${config_variables[$index]}, ${!config_variables[$index]},"
+  done
+  echo
+  echo "Bootstrapping app"
+  echo "This will take between 2 and 8 minutes to complete"
+
+  # Copy the sample config if config doesn't exist
+  if [ ! -e $config_file ]; then
+    cp 'samples/standalone.yml' containers/"$config".yml
+  fi
+
+  # Install the docker image
+  install_image
+
+  # Run the simple_installer ruby file with the config variables passed by the user
+  run_ruby_script 'simple_setup.rb' "$simple_setup_hash"
+  mv ruby_scripts/config.yml containers/"$config".yml  # overwrite the existing config with the updates
+}
+
+run_bootstrap(){
+  install_image
 
   # Is the image available?
   # If not, pull it here so the user is aware what's happening.
@@ -581,6 +626,12 @@ run_bootstrap(){
 
 
 case "$command" in
+  simple_setup)
+      run_simple_setup
+      run_bootstrap
+      echo "Successfully bootstrapped, to startup use ./launcher start $config"
+      ;;
+
   bootstrap)
       run_bootstrap
       echo "Successfully bootstrapped, to startup use ./launcher start $config"
