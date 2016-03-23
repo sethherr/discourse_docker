@@ -30,22 +30,12 @@ docker_path=`which docker.io || which docker`
 # 
 # 
 # Testing run_ruby_file
-run_ruby_file() {
-  filename=$1 # First parameter passed into run_ruby_file
+run_ruby_script() {
+  ruby_file=$1
   arguments=$2
-  # echo $filename
-  # echo $arguments
-  # echo `/usr/bin/docker run --rm -i -a stdout -a stdin discourse/discourse:1.0.17 ruby -e "$(cat $filename)"`
-  echo `$docker_path run $user_args --rm -i -a stdout -a stdin $image ruby -e "$(cat $filename)"`
-  # echo `ruby -e "$(cat $filename)"`
+  cp containers/"$config".yml ruby_scripts/config.yml  # Throw the config into the data volume for accessibility
+  echo `$docker_path run $user_args --rm -i -a stdout -a stdin -v /var/discourse/ruby_scripts:/ruby_scripts $image ruby /ruby_scripts/"$ruby_file" "$arguments"`
 }
-
-# result=`run_ruby_file 'simple_setup.rb'`
-# echo $result
-
-# ruby_script='puts "fux yeah"'
-# stuff=`/usr/bin/docker run --rm -i -a stdout -a stdin discourse/discourse:1.0.17 ruby -e "$(cat simple_setup.rb)"`
-# $docker_path run $user_args --rm -i -a stdout -a stdin $image ruby simple_setup.rb
 
 #
 #
@@ -74,24 +64,25 @@ echo "- The domain name this Discourse instance will respond to, example: discou
 echo "- The emails that will be made admin and developer on initial signup, example: 'user1@example.com,user2@example.com'"
 echo "- Your email provider configuration. For help, go to https://github.com/discourse/discourse/blob/master/docs/INSTALL-email.md"
 echo
-# for index in ${!config_variables[*]}; do # The indexes of the array
-#   read -p "${config_variables_desc[$index]}: " ${config_variables[$index]}
-#   simple_setup_hash+="${config_variables[$index]}, ${!config_variables[$index]},"
-# done
+for index in ${!config_variables[*]}; do # The indexes of the array
+  read -p "${config_variables_desc[$index]}: " ${config_variables[$index]}
+  simple_setup_hash+="${config_variables[$index]}, ${!config_variables[$index]},"
+done
+
 echo
 echo "Bootstrapping app"
 echo "This will take between 2 and 8 minutes to complete"
-
-simple_setup_hash='DISCOURSE_HOSTNAME, testly.domain.com,DISCOURSE_DEVELOPER_EMAILS, seth@exmample.com,DISCOURSE_SMTP_ADDRESS, partyaddy,DISCOURSE_SMTP_PORT, 88880,DISCOURSE_SMTP_USER_NAME, username,DISCOURSE_SMTP_PASSWORD, pAAAAAssss,'
 
 # Copy over the config if it doesn't exist
 if [ ! -e $config_file ]; then
   cp 'samples/standalone.yml' containers/"$config".yml
 fi
+
 # Install the docker image
 
-# run simple_setup ruby update
+# Still NEED TO PUT CODE HERE!
 
-# result=`$(cat $config_file) | run_ruby_file 'simple_setup.rb'`
-result=`cat 'containers/app.yml' | run_ruby_file 'simple_setup.rb'`
-echo $result > containers/app.yml
+
+# Run the simple_installer
+run_ruby_script 'simple_setup.rb' "$simple_setup_hash"
+mv ruby_scripts/config.yml containers/"$config".yml  # overwrite the existing config with the updates

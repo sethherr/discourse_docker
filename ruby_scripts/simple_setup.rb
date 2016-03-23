@@ -1,11 +1,10 @@
 require 'fileutils'
 require 'yaml'
-config_path = 'config.yml'
 array_configs = ARGV.join(',').strip.chop
                     .split(',').map(&:strip).reject(&:empty?) # remove trailing comma, strip
+config_file = '/ruby_scripts/config.yml'
 configs = Hash[*array_configs]
-@app_yml = File.read(config_path)
-
+@app_yml = File.read(config_file)
 # Instead of just writing config to_yaml with the updates
 # find and replace in file to preserve the comments
 def write_config(keyword, value)
@@ -39,5 +38,5 @@ end
   'db_shared_buffers' => pg_memory_for_memory
 }.merge(configs).each { |key, value| write_config(key, value) }
 
-File.write(config_path, @app_yml)
+File.write(config_file, @app_yml)
 puts 'successfully updated configuration'
