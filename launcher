@@ -213,7 +213,7 @@ check_ports() {
   fi
 }
 
-if [ "$opt" != "--skip-prereqs" ] ; then
+if [ "$opt" != "--skip-prereqs" ] && [ "$command" != "simple_setup" ]; then
   prereqs
 fi
 
@@ -396,12 +396,11 @@ RUBY
   usage
 }
 
-if [ ! -e $config_file ]
-  then
-    echo "Config file was not found, ensure $config_file exists"
-    echo ""
-    echo "Available configs ( `cd containers && ls -dm *.yml | tr -s '\n' ' ' | awk '{ gsub(/\.yml/, ""); print }'`)"
-    exit 1
+if [ ! -e $config_file ] && [ "$command" != "simple_setup" ]; then
+  echo "Config file was not found, ensure $config_file exists"
+  echo ""
+  echo "Available configs ( `cd containers && ls -dm *.yml | tr -s '\n' ' ' | awk '{ gsub(/\.yml/, ""); print }'`)"
+  exit 1
 fi
 
 
@@ -522,16 +521,6 @@ run_start(){
 
 }
 
-install_image() {
-  if [ "$opt" != "--skip-prereqs" ] ; then
-    check_resources
-  fi
-
-  host_run
-
-  get_ssh_pub_key
-}
-
 run_simple_setup() {
   # Get the config variables by prompting the user for them
   config_variables=(
@@ -550,6 +539,7 @@ run_simple_setup() {
     '(email provider) SMTP Username'
     '(email provider) SMTP Password'
   )
+  echo
   echo "To configure discourse we need a few things from you:"
   echo
   echo "- The domain name this Discourse instance will respond to, example: discourse.example.org"
@@ -560,9 +550,6 @@ run_simple_setup() {
     read -p "${config_variables_desc[$index]}: " ${config_variables[$index]}
     simple_setup_hash+="${config_variables[$index]}, ${!config_variables[$index]},"
   done
-  echo
-  echo "Bootstrapping app"
-  echo "This will take between 2 and 8 minutes to complete"
 
   # Copy the sample config if config doesn't exist
   if [ ! -e $config_file ]; then
@@ -570,7 +557,7 @@ run_simple_setup() {
   fi
 
   # Install the docker image
-  install_image
+  prereqs
 
   # Run the simple_installer ruby file with the config variables passed by the user
   run_ruby_script 'simple_setup.rb' "$simple_setup_hash"
@@ -578,7 +565,13 @@ run_simple_setup() {
 }
 
 run_bootstrap(){
-  install_image
+  if [ "$opt" != "--skip-prereqs" ] ; then
+    check_resources
+  fi
+
+  host_run
+
+  get_ssh_pub_key
 
   # Is the image available?
   # If not, pull it here so the user is aware what's happening.
@@ -628,6 +621,9 @@ run_bootstrap(){
 case "$command" in
   simple_setup)
       run_simple_setup
+      echo
+      echo "Bootstrapping app"
+      echo "This will take between 2 and 8 minutes to complete"
       run_bootstrap
       echo "Successfully bootstrapped, to startup use ./launcher start $config"
       ;;
